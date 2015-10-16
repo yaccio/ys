@@ -17,5 +17,5 @@ You simply call ys on a file:
 
 `ys` takes the following optional flags:
 
-- `--port`
+- `--host`
 - `--pwd`
