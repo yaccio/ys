@@ -1,7 +1,7 @@
 #ys (Yacc Serve)
 `ys` is a simple command line utility that allows you to serve a single file or
 directory over HTTPS. The file/directory will be downloadable on
-https://address:1111/ and can be fetched using a browser or wget. Directories
+https://address:8080/ and can be fetched using a browser or wget. Directories
 will be served directly as a single .zip file.
 
 #Installation
@@ -17,5 +17,5 @@ You simply call ys on a file:
 
 `ys` takes the following optional flags:
 
-- `--host`
+- `--hostname`
 - `--pwd`

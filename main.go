@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 )
@@ -11,7 +12,7 @@ import (
 type handle func(http.ResponseWriter, *http.Request)
 
 func main() {
-	addr := flag.String("addr", ":1111", "Set the address of ys")
+	hostname := flag.String("hostname", ":8080", "Set the hostname used by ys")
 	pwd := flag.String("pwd", "", "The password used to protect the content servered by ys")
 	flag.Parse()
 
@@ -23,9 +24,28 @@ func main() {
 
 	filename := flag.Arg(0)
 
-	http.HandleFunc("/", auth(*pwd, serve(filename)))
+	http.HandleFunc("/", rootOnly(logging(auth(*pwd, serve(filename)))))
 
-	http.ListenAndServe(*addr, nil)
+	log.Println("Starting ys on", *hostname)
+	err := http.ListenAndServe(*hostname, nil)
+	if err != nil {
+		log.Println("Listening error:", err.Error())
+	}
+}
+
+func rootOnly(h handle) handle {
+	return func(res http.ResponseWriter, req *http.Request) {
+		if req.RequestURI == "/" {
+			h(res, req)
+		}
+	}
+}
+
+func logging(h handle) handle {
+	return func(res http.ResponseWriter, req *http.Request) {
+		log.Printf("[%s] %s %s\n", req.Method, req.RemoteAddr, req.RequestURI)
+		h(res, req)
+	}
 }
 
 func auth(pwd string, h handle) handle {
@@ -39,6 +59,7 @@ func auth(pwd string, h handle) handle {
 				return
 			} else {
 				res.WriteHeader(http.StatusUnauthorized)
+				log.Println("Denied request from %s", req.RemoteAddr)
 			}
 		}
 	}
@@ -47,19 +68,19 @@ func auth(pwd string, h handle) handle {
 func serve(f string) handle {
 	return func(res http.ResponseWriter, req *http.Request) {
 		file, err := os.Open(f)
-		E(err)
+		errPanic(err)
 
 		stat, err := file.Stat()
-		E(err)
+		errPanic(err)
 		if stat.IsDir() {
 			res.Header().Add("Content-Disposition",
-				fmt.Sprintf("attachment; filename=\"%s.zip\"", f))
+				fmt.Sprintf("inline; filename=\"%s.zip\"", f))
 			res.Write(zipDir(file))
 		} else {
 			b, err := ioutil.ReadAll(file)
-			E(err)
+			errPanic(err)
 			res.Header().Add("Content-Disposition",
-				fmt.Sprintf("attachment; filename=\"%s\"", f))
+				fmt.Sprintf("inline; filename=\"%s\"", f))
 			res.Write(b)
 		}
 	}
@@ -69,7 +90,7 @@ func zipDir(file *os.File) []byte {
 	panic("Not implemented")
 }
 
-func E(e error) {
+func errPanic(e error) {
 	if e != nil {
 		panic(e)
 	}
