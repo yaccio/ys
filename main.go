@@ -56,12 +56,14 @@ func auth(pwd string, h handle) handle {
 		return h
 	} else {
 		return func(res http.ResponseWriter, req *http.Request) {
+			res.Header().Add("WWW-Authenticate", "Basic realm=\"ys:\"")
 			_, p, _ := req.BasicAuth()
 			if pwd == p {
 				h(res, req)
 				return
 			} else {
 				res.WriteHeader(http.StatusUnauthorized)
+				res.Write([]byte("Unauthorized"))
 				log.Println("Denied request from %s", req.RemoteAddr)
 			}
 		}
