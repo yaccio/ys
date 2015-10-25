@@ -1,15 +1,13 @@
 package main
 
 import (
-	"archive/zip"
+	"crypto/tls"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
 )
 
 type handle func(http.ResponseWriter, *http.Request)
@@ -29,8 +27,17 @@ func main() {
 
 	http.HandleFunc("/", rootOnly(logging(auth(*pwd, serve(filename)))))
 
+	cert, err := generateKeys()
+	errPanic(err)
+
 	log.Println("Starting ys on", *hostname)
-	err := http.ListenAndServe(*hostname, nil)
+	server := &http.Server{
+		Addr: *hostname,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{*cert},
+		},
+	}
+	err = server.ListenAndServeTLS("", "")
 	if err != nil {
 		log.Println("Listening error:", err.Error())
 	}
@@ -80,7 +87,8 @@ func serve(f string) handle {
 		if stat.IsDir() {
 			res.Header().Add("Content-Disposition",
 				fmt.Sprintf("inline; filename=\"%s.zip\"", f))
-			zipDir(f, res)
+			err := zipDir(f, res)
+			errPanic(err)
 		} else {
 			b, err := ioutil.ReadAll(file)
 			errPanic(err)
@@ -89,24 +97,6 @@ func serve(f string) handle {
 			res.Write(b)
 		}
 	}
-}
-
-func zipDir(file string, w io.Writer) {
-	zw := zip.NewWriter(w)
-	filepath.Walk(file, func(path string, f os.FileInfo, err error) error {
-		if !f.IsDir() {
-			errPanic(err)
-			w, err := zw.Create(path)
-			errPanic(err)
-			file, err := os.Open(path)
-			errPanic(err)
-			_, err = io.Copy(w, file)
-			errPanic(err)
-		}
-		return nil
-	})
-	err := zw.Close()
-	errPanic(err)
 }
 
 func errPanic(e error) {
