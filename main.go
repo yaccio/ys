@@ -25,22 +25,42 @@ func main() {
 
 	filename := flag.Arg(0)
 
-	http.HandleFunc("/", rootOnly(logging(auth(*pwd, serve(filename)))))
+	StartHTTPS(YsHandler{*hostname, *pwd, filename})
+}
 
-	cert, err := generateKeys()
-	errPanic(err)
-
-	log.Println("Starting ys on", *hostname)
-	server := &http.Server{
-		Addr: *hostname,
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{*cert},
-		},
+func StartHTTPS(ys YsHandler) {
+	log.Println("Starting ys on", ys.Hostname)
+	var err error
+	certfile := os.Getenv("YS_CERT")
+	privkey := os.Getenv("YS_PRIVKEY")
+	if certfile == "" || privkey == "" {
+		cert, err := generateKeys()
+		errPanic(err)
+		server := &http.Server{
+			Addr: ys.Hostname,
+			TLSConfig: &tls.Config{
+				Certificates: []tls.Certificate{*cert},
+			},
+			Handler: ys,
+		}
+		err = server.ListenAndServeTLS("", "")
+	} else {
+		err = http.ListenAndServeTLS(ys.Hostname, certfile, privkey, ys)
 	}
-	err = server.ListenAndServeTLS("", "")
+
 	if err != nil {
-		log.Println("Listening error:", err.Error())
+		log.Println("HTTPS Listening error:", err.Error())
 	}
+}
+
+type YsHandler struct {
+	Hostname string
+	Password string
+	Filename string
+}
+
+func (ys YsHandler) ServeHTTP(res http.ResponseWriter, req *http.Request) {
+	(rootOnly(logging(auth(ys.Password, serve(ys.Filename)))))(res, req)
 }
 
 func rootOnly(h handle) handle {

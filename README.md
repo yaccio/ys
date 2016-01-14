@@ -15,7 +15,14 @@ You simply call ys on a file:
 
 > ys <filename>
 
+
 `ys` takes the following optional flags:
 
-- `--hostname`
-- `--pwd`
+- `--hostname` set the hostname for ys (example: example.com:1337, :8080).
+- `--pwd` sets a password used for basic authentication.
+
+
+ys looks for the following optional env variables:
+
+- YS_CERT and YS_PRIVKEY, if set will be use for SSL. If unavailable
+a temporary generated certificate and private key will be used.
